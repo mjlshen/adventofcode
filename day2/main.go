@@ -20,6 +20,7 @@ func dive(path string, aim bool) int {
 	if err != nil {
 		log.Fatal(err)
 	}
+	defer file.Close()
 
 	a, h, d := 0, 0, 0
 
