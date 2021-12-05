@@ -3,9 +3,9 @@ package main
 import (
 	"bufio"
 	"fmt"
-	"log"
 	"math"
 	"os"
+	"strconv"
 )
 
 func main() {
@@ -24,7 +24,7 @@ func gammaEpsilon(path string) int {
 
 	file, err := os.Open(path)
 	if err != nil {
-		log.Fatal(err)
+		panic(err)
 	}
 	defer file.Close()
 
@@ -84,7 +84,7 @@ func (rs *Readings) insert(reading string) {
 func o2CO2(path string, length int) int {
 	file, err := os.Open(path)
 	if err != nil {
-		log.Fatal(err)
+		panic(err)
 	}
 	defer file.Close()
 
@@ -102,13 +102,12 @@ func o2CO2(path string, length int) int {
 }
 
 func binaryToInt(binary string) int {
-	var num int
-	for i, c := range binary {
-		if c == rune('1') {
-			num += int(math.Pow(2, float64(len(binary)-1-i)))
-		}
+	num, err := strconv.ParseInt(binary, 2, 64)
+	if err != nil {
+		panic(err)
 	}
-	return num
+
+	return int(num)
 }
 
 // O2 iterates through, picking the Zeros/Ones slice with the most elements

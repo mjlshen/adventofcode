@@ -3,10 +3,7 @@ package main
 import (
 	"bufio"
 	"fmt"
-	"log"
 	"os"
-	"strconv"
-	"strings"
 )
 
 func main() {
@@ -18,7 +15,7 @@ func main() {
 func dive(path string, aim bool) int {
 	file, err := os.Open(path)
 	if err != nil {
-		log.Fatal(err)
+		panic(err)
 	}
 	defer file.Close()
 
@@ -26,25 +23,24 @@ func dive(path string, aim bool) int {
 
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
-		line := scanner.Text()
-		cmd := strings.Fields(line)
-		v, err := strconv.Atoi(cmd[1])
-		if err != nil {
-			log.Fatal(err)
-		}
+		var (
+			cmd string
+			v   int
+		)
+		fmt.Sscanf(scanner.Text(), "%s %d", &cmd, &v)
 
-		if cmd[0] == "forward" {
+		if cmd == "forward" {
 			h += v
 			if aim {
 				d += a * v
 			}
-		} else if cmd[0] == "up" {
+		} else if cmd == "up" {
 			if aim {
 				a -= v
 			} else {
 				d -= v
 			}
-		} else if cmd[0] == "down" {
+		} else if cmd == "down" {
 			if aim {
 				a += v
 			} else {

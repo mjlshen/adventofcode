@@ -3,7 +3,6 @@ package main
 import (
 	"bufio"
 	"fmt"
-	"log"
 	"os"
 	"strconv"
 )
@@ -17,7 +16,7 @@ func main() {
 func numIncreases(path string) int {
 	file, err := os.Open(path)
 	if err != nil {
-		log.Fatal(err)
+		panic(err)
 	}
 	defer file.Close()
 
@@ -27,7 +26,7 @@ func numIncreases(path string) int {
 	for scanner.Scan() {
 		m, err := strconv.Atoi(scanner.Text())
 		if err != nil {
-			log.Fatal(err)
+			panic(err)
 		}
 		if m > prev {
 			ans++
@@ -42,7 +41,7 @@ func numIncreases(path string) int {
 func numIncreasesWindow(path string, w int) int {
 	file, err := os.Open(path)
 	if err != nil {
-		log.Fatal(err)
+		panic(err)
 	}
 	defer file.Close()
 
@@ -55,14 +54,14 @@ func numIncreasesWindow(path string, w int) int {
 		if i < w-1 {
 			window[i], err = strconv.Atoi(scanner.Text())
 			if err != nil {
-				log.Fatal(err)
+				panic(err)
 			}
 			i++
 			continue
 		} else {
 			window[len(window)-1], err = strconv.Atoi(scanner.Text())
 			if err != nil {
-				log.Fatal(err)
+				panic(err)
 			}
 		}
 
