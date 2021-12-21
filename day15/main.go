@@ -2,14 +2,21 @@ package main
 
 import (
 	"bufio"
+	"container/heap"
 	"fmt"
+	"math"
 	"os"
-	"sort"
 )
 
 func main() {
-	fmt.Printf("Part 1: %d\n", sumMinPath("input.txt", false))
-	fmt.Printf("Part 2: %d\n", sumMinPath("input.txt", true))
+	fmt.Printf("Part 1: %d\n", parseCave("input.txt", false).djikstra())
+	fmt.Printf("Part 2: %d\n", parseCave("input.txt", true).djikstra())
+}
+
+type Cave struct {
+	chitons    [][]*Node
+	start, end Coord
+	expanded   map[Coord]bool
 }
 
 type Coord struct {
@@ -21,199 +28,153 @@ type Node struct {
 	prev           *Node
 	score          int
 	heuristicScore int
+	index          int
 }
 
-type PriorityQueue struct {
-	chitons  map[Coord]int
-	queue    []*Node
-	expanded map[Node]bool
-	end      Coord
+type PriorityQueue []*Node
+
+func (c *Cave) djikstra() int {
+	pq := PriorityQueue{}
+	heap.Init(&pq)
+	heap.Push(&pq, &Node{c: c.start, heuristicScore: 0})
+
+	for len(pq) > 0 {
+		n := heap.Pop(&pq).(*Node)
+		if n.c == c.end {
+			return n.heuristicScore
+		}
+		c.expanded[n.c] = true
+
+		sweep := []Coord{
+			{n.c.x - 1, n.c.y},
+			{n.c.x + 1, n.c.y},
+			{n.c.x, n.c.y - 1},
+			{n.c.x, n.c.y + 1},
+		}
+		for _, neighbor := range sweep {
+			if neighbor.x >= 0 && neighbor.x < len(c.chitons[0]) && neighbor.y >= 0 && neighbor.y < len(c.chitons) {
+				if _, ok := c.expanded[neighbor]; !ok {
+					newScore := n.heuristicScore + c.chitons[neighbor.x][neighbor.y].score
+					if newScore < c.chitons[neighbor.x][neighbor.y].heuristicScore {
+						c.chitons[neighbor.x][neighbor.y].prev = n
+						c.chitons[neighbor.x][neighbor.y].heuristicScore = newScore
+						heap.Push(&pq, c.chitons[neighbor.x][neighbor.y])
+					}
+				}
+			}
+		}
+	}
+
+	return 0
 }
 
-func sumMinPath(path string, fullCave bool) int {
+func parseCave(path string, fullCave bool) *Cave {
 	file, err := os.Open(path)
 	if err != nil {
 		panic(err)
 	}
 
-	chitons := map[Coord]int{}
-	x, y := 0, 0
+	chitons := [][]*Node{}
 
 	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		y = 0
-		for _, i := range scanner.Text() {
-			chitons[Coord{x, y}] = int(i - '0')
-			if fullCave {
-				for j := 1; j < 5; j++ {
-					val := int(i-'0') + j
+	for i := 0; scanner.Scan(); i++ {
+		chitonsRow := []*Node{}
+		for j, num := range scanner.Text() {
+			chitonsRow = append(chitonsRow, &Node{
+				c:              Coord{x: i, y: j},
+				score:          int(num - '0'),
+				heuristicScore: math.MaxInt,
+			})
+		}
+
+		if fullCave {
+			// Repeat 5 times in the positive x direction
+			originalLen := len(chitonsRow)
+			for i := 1; i < 5; i++ {
+				for j := 0; j < originalLen; j++ {
+					val := chitonsRow[j].score + i
 					if val > 9 {
 						val -= 9
 					}
-					chitons[Coord{x, y + len(scanner.Text())*j}] += val
+					chitonsRow = append(chitonsRow, &Node{
+						c:              Coord{x: chitonsRow[j].c.x, y: originalLen*i + j},
+						score:          val,
+						heuristicScore: math.MaxInt,
+					})
 				}
 			}
-			y++
 		}
-		x++
+		chitons = append(chitons, chitonsRow)
 	}
 
 	if fullCave {
-		for transpositions := 1; transpositions < 5; transpositions++ {
-			for i := 0; i < x; i++ {
-				for j := 0; j < 5*y; j++ {
-					val := chitons[Coord{i, j}] + transpositions
+		// Repeat 5 times in the positive y direction
+		originalLen := len(chitons[0])
+		originalHeight := len(chitons)
+		for i := 1; i < 5; i++ {
+			for j := 0; j < originalHeight; j++ {
+				chitonsRow := []*Node{}
+				for k := 0; k < originalLen; k++ {
+					val := chitons[j][k].score + i
 					if val > 9 {
 						val -= 9
 					}
-					chitons[Coord{i + x*transpositions, j}] = val
+					chitonsRow = append(chitonsRow, &Node{
+						c:              Coord{x: j + originalHeight*i, y: k},
+						score:          val,
+						heuristicScore: math.MaxInt,
+					})
 				}
+				chitons = append(chitons, chitonsRow)
 			}
 		}
 	}
 
-	maxX, maxY := x, y
-	if fullCave {
-		maxX = x * 5
-		maxY = y * 5
-	}
-
-	priorityQueue := &PriorityQueue{
+	return &Cave{
 		chitons:  chitons,
-		queue:    []*Node{},
-		expanded: map[Node]bool{},
-		end:      Coord{maxX - 1, maxY - 1},
+		start:    Coord{0, 0},
+		end:      Coord{x: len(chitons) - 1, y: len(chitons[0]) - 1},
+		expanded: map[Coord]bool{},
 	}
-
-	priorityQueue.insert(
-		Node{
-			c:     Coord{0, 0},
-			prev:  nil,
-			score: 0,
-		},
-	)
-
-	ans := priorityQueue.aStar()
-
-	return ans
 }
 
-func (p *PriorityQueue) String() string {
-	var output string
-	for _, node := range p.queue {
-		output += fmt.Sprintf("Coord: {%d,%d}, Prev: %v, Score: %d\n", node.c.x, node.c.y, *node.prev, node.score)
-	}
-
-	return output
-}
-
-func (p *PriorityQueue) insert(n Node) {
-	for _, node := range p.queue {
-		if node.c == n.c {
-			if n.score < node.score {
-				node.score = n.score
-				node.prev = n.prev
-			}
-			return
+func (c Cave) String() string {
+	var s string
+	for _, row := range c.chitons {
+		for _, chiton := range row {
+			s += fmt.Sprintf("%d", chiton.score)
 		}
+		s += "\n"
 	}
-
-	p.queue = append(p.queue, &n)
-	p.sort()
+	return s[:len(s)-1]
 }
 
-func (p *PriorityQueue) pop() *Node {
-	n := p.queue[0]
-	if n.prev != nil {
-		n.score = n.prev.score + p.chitons[n.c]
-	} else {
-		n.score = 0
-	}
-
-	p.queue = p.queue[1:]
-	return n
+// https://pkg.go.dev/container/heap#example-package-PriorityQueue
+func (pq PriorityQueue) Len() int {
+	return len(pq)
 }
 
-func (p *PriorityQueue) sort() {
-	sort.SliceStable(p.queue, func(i, j int) bool {
-		return p.queue[i].heuristicScore < p.queue[j].heuristicScore
-	})
+func (pq PriorityQueue) Less(i, j int) bool {
+	return pq[i].heuristicScore < pq[j].heuristicScore
 }
 
-func manhattanDistance(start Coord, end Coord) int {
-	return abs(start.x-end.x) + abs(start.y-end.y)
+func (pq PriorityQueue) Swap(i, j int) {
+	pq[i], pq[j] = pq[j], pq[i]
+	pq[i].index = i
+	pq[j].index = j
 }
 
-func abs(x int) int {
-	if x < 0 {
-		return -x
-	}
-	return x
+func (pq *PriorityQueue) Pop() interface{} {
+	old := *pq
+	node := old[len(old)-1]
+	old[len(old)-1] = nil // avoid memory leak
+	node.index = -1       // for safety
+	*pq = old[0 : len(old)-1]
+	return node
 }
 
-func (p *PriorityQueue) expand(n *Node) {
-	sweep := []Coord{
-		{n.c.x - 1, n.c.y},
-		{n.c.x + 1, n.c.y},
-		{n.c.x, n.c.y - 1},
-		{n.c.x, n.c.y + 1},
-	}
-
-	for _, neighbor := range sweep {
-		if _, ok := p.chitons[neighbor]; ok {
-			found := false
-			for k := range p.expanded {
-				if k.c == neighbor {
-					found = true
-					break
-				}
-			}
-			if !found {
-				p.insert(Node{
-					c:              neighbor,
-					prev:           n,
-					score:          n.score + p.chitons[neighbor],
-					heuristicScore: n.score + manhattanDistance(p.end, neighbor) + p.chitons[neighbor],
-				})
-			}
-		}
-	}
-}
-
-func (p *PriorityQueue) score(end Coord) int {
-	score := 0
-	current := end
-	for {
-		if current.x == 0 && current.y == 0 {
-			return score
-		}
-
-		found := false
-		for k := range p.expanded {
-			if k.c == current {
-				score += p.chitons[k.c]
-				current = k.prev.c
-				found = true
-				break
-			}
-		}
-
-		if !found {
-			panic("Not found")
-		}
-	}
-}
-
-func (p *PriorityQueue) aStar() int {
-	numpop := 0
-	for {
-		n := p.pop()
-		numpop++
-		fmt.Println(numpop)
-		p.expanded[*n] = true
-		if n.c == p.end {
-			return p.score(p.end)
-		}
-		p.expand(n)
-	}
+func (pq *PriorityQueue) Push(x interface{}) {
+	node := x.(*Node)
+	node.index = len(*pq)
+	*pq = append(*pq, node)
 }
