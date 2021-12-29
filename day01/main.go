@@ -3,8 +3,8 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"math"
 	"os"
-	"strconv"
 )
 
 func main() {
@@ -20,12 +20,12 @@ func numIncreases(path string) int {
 	}
 	defer file.Close()
 
-	prev, ans := 0, -1
+	prev, ans := math.MinInt, -1
 
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
-		m, err := strconv.Atoi(scanner.Text())
-		if err != nil {
+		var m int
+		if _, err := fmt.Sscanf(scanner.Text(), "%d", &m); err != nil {
 			panic(err)
 		}
 		if m > prev {
@@ -45,24 +45,20 @@ func numIncreasesWindow(path string, w int) int {
 	}
 	defer file.Close()
 
-	prev, ans := 0, -1
+	prev, ans := math.MinInt, -1
 	window := make([]int, w)
-	i := 0
 
 	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
+	for i := 0; scanner.Scan(); i++ {
 		if i < w-1 {
-			window[i], err = strconv.Atoi(scanner.Text())
-			if err != nil {
+			if _, err := fmt.Sscanf(scanner.Text(), "%d", &window[i]); err != nil {
 				panic(err)
 			}
-			i++
 			continue
-		} else {
-			window[len(window)-1], err = strconv.Atoi(scanner.Text())
-			if err != nil {
-				panic(err)
-			}
+		}
+
+		if _, err := fmt.Sscanf(scanner.Text(), "%d", &window[len(window)-1]); err != nil {
+			panic(err)
 		}
 
 		m := sum(window)
@@ -91,6 +87,4 @@ func shift(a []int) []int {
 		a[i-1] = a[i]
 	}
 	return a
-
-	// return append(a[1:], 0) This also works but allocates a new slice?
 }
